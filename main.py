@@ -28,12 +28,14 @@ def parse_json_file(file_path: str):
                 referrer = entry[1]
                 print(f"  Code: {code} -> Referrer: {referrer}")
 
-            builder_fees = fee_tracker["builder_to_total_fees_collected"]
+            builder_fees = fee_tracker["collected_builder_fees"]
 
             print("\nBuilder to Total Fees Collected:")
             for builder_entry in builder_fees:
+                # Every item is an array with two elements:
+                # ["0x0cbf655b0d22ae71fba3a674b0e1c0c7e7f975af", [[0, 707674919034866]]]
                 builder_address = builder_entry[0]
-                fees = builder_entry[1]
+                fees = builder_entry[1][0][1]
                 print(f"  {builder_address}: {fees}")
 
     except FileNotFoundError:
