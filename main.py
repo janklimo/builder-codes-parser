@@ -17,7 +17,17 @@ def parse_json_file(file_path: str):
 
             # Access the fees_tracker data
             exchange = data["exchange"]
+            snapshot_time = exchange["context"]["time"]
+            print(f"\nSnapshot Time: {snapshot_time}")
+
             fee_tracker = exchange["fee_tracker"]
+            code_to_referrer = fee_tracker["code_to_referrer"]
+
+            for entry in code_to_referrer:
+                code = entry[0]
+                referrer = entry[1]
+                print(f"  Code: {code} -> Referrer: {referrer}")
+
             builder_fees = fee_tracker["builder_to_total_fees_collected"]
 
             print("\nBuilder to Total Fees Collected:")
@@ -35,9 +45,7 @@ def parse_json_file(file_path: str):
 if __name__ == "__main__":
     start_time = time.time()
 
-    # Get the path to data.json relative to the script
-    json_file = Path(__file__).parent / "data.json"
-    parse_json_file(str(json_file))
+    parse_json_file("data.json")
 
     end_time = time.time()
     execution_time = end_time - start_time
