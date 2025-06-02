@@ -73,8 +73,10 @@ def parse_json_file() -> Tuple[Dict[str, float], str]:
 
 
 def send_to_api(fee_entries: Dict[str, float], snapshot_time: str) -> bool:
-    api_url = "https://yprjg.hatchboxapp.com/api/v1/builder_codes_snapshots"
     token = os.getenv("BUILDER_CODES_TOKEN")
+    host = os.getenv("BUILDER_CODES_HOST")
+
+    api_url = f"{host}/api/v1/builder_codes_snapshots"
 
     if not token:
         print("Error: BUILDER_CODES_TOKEN environment variable not set")
