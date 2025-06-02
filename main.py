@@ -26,7 +26,7 @@ def format_address(address: str, codes_map: Dict[str, str]) -> str:
     return address
 
 
-def parse_json_file() -> Tuple[List[Tuple[str, float]], str]:
+def parse_json_file() -> Tuple[Dict[str, float], str]:
     try:
         with open("data.json", "r") as f:
             data: Any = json_stream.load(f)
@@ -44,20 +44,22 @@ def parse_json_file() -> Tuple[List[Tuple[str, float]], str]:
 
             builder_fees = fee_tracker["collected_builder_fees"]
 
-            fee_entries = []
+            fee_entries = {}
             for builder_entry in builder_fees:
                 builder_address = builder_entry[0]
                 fees = builder_entry[1][0][1]
                 # Convert amount to USD (assuming the amount is in wei, divide by 10^6)
                 actual_amount = fees / (10**8)
                 formatted_address = format_address(builder_address, codes_map)
-                fee_entries.append((formatted_address, actual_amount))
+                fee_entries[formatted_address] = actual_amount
 
-            # Sort by amount in descending order
-            fee_entries.sort(key=lambda x: x[1], reverse=True)
+            # Sort entries by amount in descending order for display
+            sorted_entries = sorted(
+                fee_entries.items(), key=lambda x: x[1], reverse=True
+            )
 
             print("\nBuilder to Total Fees Collected (Sorted by Amount):")
-            for formatted_address, actual_amount in fee_entries:
+            for formatted_address, actual_amount in sorted_entries:
                 print(f"{formatted_address}: ${actual_amount:,.0f}")
 
             return fee_entries, snapshot_time
@@ -70,7 +72,7 @@ def parse_json_file() -> Tuple[List[Tuple[str, float]], str]:
         raise
 
 
-def send_to_api(fee_entries: List[Tuple[str, float]], snapshot_time: str) -> bool:
+def send_to_api(fee_entries: Dict[str, float], snapshot_time: str) -> bool:
     api_url = "https://yprjg.hatchboxapp.com/api/v1/builder_codes_snapshots"
     token = os.getenv("BUILDER_CODES_TOKEN")
 
