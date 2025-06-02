@@ -1,6 +1,11 @@
 import json_stream
-from typing import Any, Dict
+from typing import Any, Dict, List, Tuple
 import time
+import os
+import requests
+from dotenv import load_dotenv
+
+load_dotenv()
 
 ADDRESS_MAPPINGS = {
     "0x49ae63056b3a0be0b166813ee687309ab653c07c": "NFTINITCOM",
@@ -21,7 +26,7 @@ def format_address(address: str, codes_map: Dict[str, str]) -> str:
     return address
 
 
-def parse_json_file():
+def parse_json_file() -> Tuple[List[Tuple[str, float]], str]:
     try:
         with open("data.json", "r") as f:
             data: Any = json_stream.load(f)
@@ -55,15 +60,55 @@ def parse_json_file():
             for formatted_address, actual_amount in fee_entries:
                 print(f"{formatted_address}: ${actual_amount:,.0f}")
 
+            return fee_entries, snapshot_time
+
     except FileNotFoundError:
         print(f"Error: File not found.")
+        raise
     except Exception as e:
         print(f"Error parsing JSON: {str(e)}")
+        raise
+
+
+def send_to_api(fee_entries: List[Tuple[str, float]], snapshot_time: str) -> bool:
+    api_url = "https://yprjg.hatchboxapp.com/api/v1/builder_codes_snapshots"
+    token = os.getenv("BUILDER_CODES_TOKEN")
+
+    if not token:
+        print("Error: BUILDER_CODES_TOKEN environment variable not set")
+        return False
+
+    payload = {
+        "builder_codes_snapshot": {
+            "data": fee_entries,
+            "taken_at": snapshot_time,
+        }
+    }
+
+    headers = {"X-Token": token, "Content-Type": "application/json"}
+
+    try:
+        response = requests.post(api_url, json=payload, headers=headers)
+
+        if response.status_code == 201:
+            print("\nSuccessfully sent data to API")
+            return True
+        else:
+            print(f"\nError sending data to API: {response.status_code}")
+            print(f"Response: {response.text}")
+            return False
+    except Exception as e:
+        print(f"Error sending data to API: {str(e)}")
+        return False
 
 
 if __name__ == "__main__":
     start_time = time.time()
-    parse_json_file()
+    try:
+        fee_entries, snapshot_time = parse_json_file()
+        send_to_api(fee_entries, snapshot_time)
+    except Exception as e:
+        print(f"Error: {str(e)}")
     end_time = time.time()
     execution_time = end_time - start_time
     print(f"\nScript execution time: {execution_time:.2f} seconds")
