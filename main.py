@@ -1,5 +1,5 @@
 import json_stream
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, Tuple
 import time
 import os
 import requests
@@ -26,7 +26,7 @@ def format_address(address: str, codes_map: Dict[str, str]) -> str:
     return address
 
 
-def parse_json_file() -> Tuple[Dict[str, float], str]:
+def parse_json_file() -> Tuple[Dict[str, float], str, float]:
     try:
         with open("data.json", "r") as f:
             data: Any = json_stream.load(f)
@@ -37,18 +37,55 @@ def parse_json_file() -> Tuple[Dict[str, float], str]:
             print(f"\nSnapshot Time: {snapshot_time}")
 
             fee_tracker = exchange["fee_tracker"]
-            code_to_referrer = fee_tracker["code_to_referrer"]
 
-            # Create address to code mapping
+            # Parse user_states for referral rewards
+            user_states = fee_tracker["user_states"]
+            referral_fees = {}
+
+            for user_entry in user_states:
+                user_data = user_entry[1]
+
+                referrer_address = user_data.get("r")
+
+                if referrer_address:
+                    t_array = user_data.get("T", [])
+
+                    # Initialize referrer in dictionary if not present
+                    if referrer_address not in referral_fees:
+                        referral_fees[referrer_address] = 0
+
+                    # Parse T array for referral rewards
+                    for t_entry in t_array:
+                        reward = t_entry[1].get("r", 0)
+                        # Convert to actual amount (assuming same format as fees)
+                        actual_reward = reward / (10**8)
+                        referral_fees[referrer_address] += actual_reward
+
+            # Calculate and print total referrer rewards paid out
+            total_referral_fees = sum(referral_fees.values())
+            print(f"\nTotal Referrer Rewards Paid Out: ${total_referral_fees:,.0f}")
+
+            # Sort referrer rewards by amount in descending order
+            sorted_referral_fees = sorted(
+                referral_fees.items(), key=lambda x: x[1], reverse=True
+            )
+
+            print("\nReferrer to Total Rewards (Sorted by Amount):")
+            for referrer_address, total_reward in sorted_referral_fees:
+                print(f"{referrer_address}: ${total_reward:,.0f}")
+
+            # Get code mapping first
+            code_to_referrer = fee_tracker["code_to_referrer"]
             codes_map = {referrer: code for code, referrer in code_to_referrer}
 
+            # Parse builder fees
             builder_fees = fee_tracker["collected_builder_fees"]
 
             fee_entries = {}
             for builder_entry in builder_fees:
                 builder_address = builder_entry[0]
                 fees = builder_entry[1][0][1]
-                # Convert amount to USD (assuming the amount is in wei, divide by 10^6)
+                # Convert amount to USD
                 actual_amount = fees / (10**8)
                 formatted_address = format_address(builder_address, codes_map)
                 fee_entries[formatted_address] = actual_amount
@@ -62,7 +99,7 @@ def parse_json_file() -> Tuple[Dict[str, float], str]:
             for formatted_address, actual_amount in sorted_entries:
                 print(f"{formatted_address}: ${actual_amount:,.0f}")
 
-            return fee_entries, snapshot_time
+            return fee_entries, snapshot_time, total_referral_fees
 
     except FileNotFoundError:
         print(f"Error: File not found.")
@@ -72,7 +109,9 @@ def parse_json_file() -> Tuple[Dict[str, float], str]:
         raise
 
 
-def send_to_api(fee_entries: Dict[str, float], snapshot_time: str) -> bool:
+def send_to_api(
+    fee_entries: Dict[str, float], snapshot_time: str, total_referral_fees: float
+) -> bool:
     token = os.getenv("BUILDER_CODES_TOKEN")
     host = os.getenv("BUILDER_CODES_HOST")
 
@@ -86,6 +125,7 @@ def send_to_api(fee_entries: Dict[str, float], snapshot_time: str) -> bool:
         "builder_codes_snapshot": {
             "data": fee_entries,
             "taken_at": snapshot_time,
+            "total_referral_fees": total_referral_fees,
         }
     }
 
@@ -109,8 +149,8 @@ def send_to_api(fee_entries: Dict[str, float], snapshot_time: str) -> bool:
 if __name__ == "__main__":
     start_time = time.time()
     try:
-        fee_entries, snapshot_time = parse_json_file()
-        send_to_api(fee_entries, snapshot_time)
+        fee_entries, snapshot_time, total_referral_fees = parse_json_file()
+        send_to_api(fee_entries, snapshot_time, total_referral_fees)
     except Exception as e:
         print(f"Error: {str(e)}")
     end_time = time.time()
