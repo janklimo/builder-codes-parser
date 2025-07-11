@@ -15,14 +15,16 @@ ADDRESS_MAPPINGS = {
     "0xc1a2f762f67af72fd05e79afa23f8358a4d7dbaf": "TRUSTMEBROS",
     "0x05984fd37db96dc2a11a09519a8def556e80590b": "OKTO",
     "0x2868fc0d9786a740b491577a43502259efa78a39": "INSILICO",
+    "0xb84168cf3be63c6b8dad05ff5d755e97432ff80b": "PHANTOM",
+    "0xa47d4d99191db54a4829cdf3de2417e527c3b042": "PEAR",
 }
 
 
 def format_address(address: str, codes_map: Dict[str, str]) -> str:
-    if address in codes_map:
-        return codes_map[address]
     if address in ADDRESS_MAPPINGS:
         return ADDRESS_MAPPINGS[address]
+    if address in codes_map:
+        return codes_map[address]
 
     return address
 
