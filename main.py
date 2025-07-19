@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 ADDRESS_MAPPINGS = {
-    "0x49ae63056b3a0be0b166813ee687309ab653c07c": "NFTINITCOM",
+    "0x49ae63056b3a0be0b166813ee687309ab653c07c": "DEXTRABOT",
     "0xc74812f67eddaf2f3aed6e061eaa9168b36d7ea1": "FASTER100X",
     "0x507c7777837b85ede1e67f5a4554ddd7e58b1f87": "RAGE_TRADE",
     "0xf7aae720d79b062ec268ac8e4389be68baf8f9d3": "HYPER_WALLET",
@@ -18,6 +18,7 @@ ADDRESS_MAPPINGS = {
     "0xb84168cf3be63c6b8dad05ff5d755e97432ff80b": "PHANTOM",
     "0xa47d4d99191db54a4829cdf3de2417e527c3b042": "PEAR",
     "0xf944069b489f1ebff4c3c6a6014d58cbef7c7009": "MASS",
+    "0x68c68ba58f50bdbe5c4a6faf0186b140eab2b764": "WALLETV",
 }
 
 
