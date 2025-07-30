@@ -67,7 +67,10 @@ def parse_json_file() -> (
                     # Increment count for this referrer address
                     referrer_address_counts[referrer_address] += 1
 
-                    t_array = user_data.get("T", [])
+                    try:
+                        t_array = user_data.get("T")
+                    except Exception:
+                        continue
 
                     # Initialize referrer in dictionary if not present
                     if referrer_address not in referral_fees:
