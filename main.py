@@ -91,11 +91,11 @@ def parse_json_file() -> (
                 referral_fees.items(), key=lambda x: x[1], reverse=True
             )
 
-            print("\nTop 20 Referrers by Total Rewards:")
+            print("\nTop 30 Referrers by Total Rewards:")
             print(f"{'Rank':<4} {'Referrer':<45} {'Rewards':<12}")
             print("-" * 63)
             for i, (referrer_address, total_reward) in enumerate(
-                sorted_referral_fees[:20], 1
+                sorted_referral_fees[:30], 1
             ):
                 print(f"{i:<4} {referrer_address:<45} ${total_reward:,.0f}")
 
@@ -118,25 +118,24 @@ def parse_json_file() -> (
                     else:
                         referral_code_counts[referral_code] = count
 
-            # Print top 20 referral codes by count
             sorted_referral_codes = sorted(
                 referral_code_counts.items(), key=lambda x: x[1], reverse=True
             )
 
-            print("\nTop 20 Referral Codes by Number of Referrals:")
+            print("\nTop 30 Referral Codes by Number of Referrals:")
             print(f"{'Rank':<4} {'Code':<15} {'Count':<8}")
             print("-" * 30)
-            for i, (code, count) in enumerate(sorted_referral_codes[:20], 1):
+            for i, (code, count) in enumerate(sorted_referral_codes[:30], 1):
                 print(f"{i:<4} {code:<15} {count:<8}")
 
-            # Prepare top 20 referral codes data for API
+            # Prepare top 30 referral codes data for API
             top_referral_codes = [
-                [code, count] for code, count in sorted_referral_codes[:20]
+                [code, count] for code, count in sorted_referral_codes[:30]
             ]
 
-            # Prepare top 20 referral fees by code for API
+            # Prepare top 30 referral fees by code for API
             top_referral_fees = []
-            for referrer_address, total_fees in sorted_referral_fees[:20]:
+            for referrer_address, total_fees in sorted_referral_fees[:30]:
                 referral_code = codes_map.get(referrer_address)
                 if referral_code:
                     # Apply any code remappings for consolidation
