@@ -22,6 +22,7 @@ ADDRESS_MAPPINGS = {
     "0x68c68ba58f50bdbe5c4a6faf0186b140eab2b764": "WALLETV",
     "0x1924b8561eef20e70ede628a296175d358be80e5": "BASEDAPP",
     "0x6d4e7f472e6a491b98cbeed327417e310ae8ce48": "LIQUID",
+    "0x2fc5f7e839a1b7d3d0f5af8d1a03cdcd60525c75": "HARMONIX",
 }
 
 CODE_REMAPPINGS = {
@@ -162,12 +163,10 @@ def parse_json_file() -> (
                 fee_entries.items(), key=lambda x: x[1], reverse=True
             )
 
-            print("\nTop 20 Builders by Total Fees Collected:")
+            print("\nAll Builders by Total Fees Collected:")
             print(f"{'Rank':<4} {'Builder':<20} {'Fees':<12}")
             print("-" * 38)
-            for i, (formatted_address, actual_amount) in enumerate(
-                sorted_entries[:20], 1
-            ):
+            for i, (formatted_address, actual_amount) in enumerate(sorted_entries, 1):
                 print(f"{i:<4} {formatted_address:<20} ${actual_amount:,.0f}")
 
             return (
