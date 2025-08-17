@@ -130,22 +130,22 @@ def delegations_to_nivo_json(validator_delegations):
     """
     Group delegations as follows:
     - > 10,000 tokens: individual entries
-    - < 100 tokens: grouped as '🦐'
-    - 100 <= tokens < 10,000: grouped as '🐬'
+    - < 1,000 tokens: grouped as '🦐'
+    - >= 1,000 but < 10,000 tokens: grouped as '🐬'
     Output amounts in tokens (float, rounded to 2 decimals).
     """
     result = {"address": "delegations", "children": []}
     for validator, delegations in validator_delegations:
         children = []
-        shrimp_sum = 0  # < 100
-        dolphin_sum = 0  # 100 <= x < 10,000
+        shrimp_sum = 0  # < 1000
+        dolphin_sum = 0  # 1000 <= x < 10,000
         for user, wei in delegations:
             tokens = wei / (10**8)
             if tokens > 10000:
                 children.append({"address": user, "amount": round(tokens, 2)})
-            elif tokens < 100:
+            elif tokens < 1000:
                 shrimp_sum += tokens
-            else:  # 100 <= tokens <= 10,000
+            else:  # 1000 <= tokens <= 10,000
                 dolphin_sum += tokens
         if shrimp_sum > 0:
             children.append({"address": "\U0001F990", "amount": round(shrimp_sum, 2)})
@@ -177,9 +177,9 @@ def write_delegations_csv(
 def analyze_user_token_ranges(csv_filename="delegations.csv"):
     """
     Analyze delegations.csv and print counts of users:
-    - < 100 tokens
-    - > 100 but < 10000
-    - > 10000
+    - < 1000 tokens
+    - >= 1000 but < 10000
+    - >= 10000
     """
     import csv
     from collections import defaultdict
@@ -196,22 +196,22 @@ def analyze_user_token_ranges(csv_filename="delegations.csv"):
                 continue
             user_totals[user] += tokens
 
-    count_lt_100 = 0
-    count_100_10000 = 0
+    count_lt_1000 = 0
+    count_1000_10000 = 0
     count_gt_10000 = 0
 
     for total in user_totals.values():
-        if total < 100:
-            count_lt_100 += 1
+        if total < 1000:
+            count_lt_1000 += 1
         elif total < 10000:
-            count_100_10000 += 1
+            count_1000_10000 += 1
         else:
             count_gt_10000 += 1
 
     print("User token distribution:")
-    print(f"< 100 tokens: {count_lt_100}")
-    print(f"> 100 but < 10000 tokens: {count_100_10000}")
-    print(f"> 10000 tokens: {count_gt_10000}")
+    print(f"< 1000 tokens: {count_lt_1000}")
+    print(f">= 1000 but < 10000 tokens: {count_1000_10000}")
+    print(f">= 10000 tokens: {count_gt_10000}")
 
 
 if __name__ == "__main__":
