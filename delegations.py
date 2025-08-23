@@ -6,6 +6,9 @@ import csv
 import json
 import os
 import requests
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 def parse_delegations() -> list:
@@ -107,11 +110,11 @@ def send_validators_to_api(nivo_data):
     """
     token = os.getenv("BUILDER_CODES_TOKEN")
     host = os.getenv("BUILDER_CODES_HOST")
-    api_url = f"{host}/api/v1/validators_snapshots"
+    api_url = f"{host}/api/v1/staking_snapshots"
     if not token:
         print("Error: BUILDER_CODES_TOKEN environment variable not set")
         return False
-    payload = {"validators_snapshot": {"data": nivo_data}}
+    payload = {"staking_snapshot": {"data": nivo_data}}
     print("Sending the following payload to API:", payload)
     headers = {"X-Token": token, "Content-Type": "application/json"}
     try:
