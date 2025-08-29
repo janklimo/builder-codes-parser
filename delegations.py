@@ -11,10 +11,12 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-def parse_delegations() -> list:
+def parse_delegations() -> tuple:
     """
     Parse delegations data from data.json file.
-    Returns a list of (validator_address, delegations_list) tuples, sorted by total stake (sum of wei) descending.
+    Returns a tuple of (validator_delegations, snapshot_time) where:
+    - validator_delegations: list of (validator_address, delegations_list) tuples, sorted by total stake (sum of wei) descending
+    - snapshot_time: the timestamp from the data
     Each delegations_list is a list of (user_address, token_amount).
     """
     try:
@@ -23,6 +25,9 @@ def parse_delegations() -> list:
 
             # Navigate to the delegation data
             exchange = data["exchange"]
+            snapshot_time = exchange["context"]["time"]
+            print(f"\nSnapshot Time: {snapshot_time}")
+
             c_staking = exchange["c_staking"]
             delegations = c_staking["delegations"]
             user_to_delegations = delegations["user_to_delegations"]
@@ -60,7 +65,7 @@ def parse_delegations() -> list:
                 key=lambda item: sum(wei for _, wei in item[1]),
                 reverse=True,
             )
-            return sorted_validators
+            return sorted_validators, snapshot_time
 
     except FileNotFoundError:
         print(f"Error: data.json file not found.")
@@ -104,9 +109,9 @@ def delegations_to_nivo_json(validator_delegations):
     return result
 
 
-def send_validators_to_api(nivo_data):
+def send_validators_to_api(nivo_data, snapshot_time):
     """
-    Send nivo_data to the /validators endpoint as { "validators_snapshot": { "data": data } }
+    Send nivo_data to the /validators endpoint as { "staking_snapshot": { "data": data, "taken_at": snapshot_time } }
     """
     token = os.getenv("BUILDER_CODES_TOKEN")
     host = os.getenv("BUILDER_CODES_HOST")
@@ -114,7 +119,7 @@ def send_validators_to_api(nivo_data):
     if not token:
         print("Error: BUILDER_CODES_TOKEN environment variable not set")
         return False
-    payload = {"staking_snapshot": {"data": nivo_data}}
+    payload = {"staking_snapshot": {"data": nivo_data, "taken_at": snapshot_time}}
     print("Sending the following payload to API:", payload)
     headers = {"X-Token": token, "Content-Type": "application/json"}
     try:
@@ -134,12 +139,12 @@ def send_validators_to_api(nivo_data):
 if __name__ == "__main__":
     start_time = time.time()
     try:
-        validator_delegations = parse_delegations()
+        validator_delegations, snapshot_time = parse_delegations()
         nivo_data = delegations_to_nivo_json(validator_delegations)
 
         print(json.dumps(nivo_data, indent=2))
 
-        send_validators_to_api(nivo_data)
+        send_validators_to_api(nivo_data, snapshot_time)
 
     except Exception as e:
         print(f"Error: {str(e)}")
