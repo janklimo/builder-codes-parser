@@ -109,9 +109,35 @@ def delegations_to_nivo_json(validator_delegations):
     return result
 
 
-def send_validators_to_api(nivo_data, snapshot_time):
+def calculate_validator_stats(validator_delegations):
+    """
+    Calculate statistics for validators:
+    - Number of delegations per validator
+    - Total delegated stake per validator (in tokens)
+
+    Returns a tuple of (delegations_count_dict, total_stake_dict)
+    """
+    delegations_count = {}
+    total_stake = {}
+
+    for validator_address, delegations in validator_delegations:
+        # Count number of delegations
+        delegations_count[validator_address] = len(delegations)
+
+        # Calculate total stake in tokens (wei / 10^8)
+        total_wei = sum(wei for _, wei in delegations)
+        total_tokens = total_wei / (10**8)
+        total_stake[validator_address] = round(total_tokens, 2)
+
+    return delegations_count, total_stake
+
+
+def send_validators_to_api(
+    nivo_data, snapshot_time, delegations_count=None, total_stake=None
+):
     """
     Send nivo_data to the /validators endpoint as { "staking_snapshot": { "data": data, "taken_at": snapshot_time } }
+    Also send delegations_count and total_stake if provided.
     """
     token = os.getenv("BUILDER_CODES_TOKEN")
     host = os.getenv("BUILDER_CODES_HOST")
@@ -119,7 +145,15 @@ def send_validators_to_api(nivo_data, snapshot_time):
     if not token:
         print("Error: BUILDER_CODES_TOKEN environment variable not set")
         return False
+
     payload = {"staking_snapshot": {"data": nivo_data, "taken_at": snapshot_time}}
+
+    # Add validator stats if provided
+    if delegations_count is not None:
+        payload["staking_snapshot"]["validators_delegations_count"] = delegations_count
+    if total_stake is not None:
+        payload["staking_snapshot"]["validators_total_stake"] = total_stake
+
     print("Sending the following payload to API:", payload)
     headers = {"X-Token": token, "Content-Type": "application/json"}
     try:
@@ -140,11 +174,37 @@ if __name__ == "__main__":
     start_time = time.time()
     try:
         validator_delegations, snapshot_time = parse_delegations()
+
+        # Calculate and print validator statistics
+        delegations_count, total_stake = calculate_validator_stats(
+            validator_delegations
+        )
+
+        # Sort dictionaries for consistent ordering
+        sorted_delegations_count = dict(
+            sorted(delegations_count.items(), key=lambda x: x[1], reverse=True)
+        )
+        sorted_total_stake = dict(
+            sorted(total_stake.items(), key=lambda x: x[1], reverse=True)
+        )
+
+        print("\n" + "=" * 50)
+        print("NUMBER OF DELEGATIONS PER VALIDATOR:")
+        print("=" * 50)
+        for validator, count in sorted_delegations_count.items():
+            print(f"{validator}: {count} delegations")
+
+        print("\n" + "=" * 50)
+        print("TOTAL DELEGATED STAKE PER VALIDATOR (tokens):")
+        print("=" * 50)
+        for validator, stake in sorted_total_stake.items():
+            print(f"{validator}: {stake:,.2f} tokens")
+
         nivo_data = delegations_to_nivo_json(validator_delegations)
 
-        print(json.dumps(nivo_data, indent=2))
-
-        send_validators_to_api(nivo_data, snapshot_time)
+        send_validators_to_api(
+            nivo_data, snapshot_time, sorted_delegations_count, sorted_total_stake
+        )
 
     except Exception as e:
         print(f"Error: {str(e)}")
