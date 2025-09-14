@@ -1,12 +1,14 @@
 import json_stream
-from typing import Any, Dict, List, Tuple
+from typing import Any
 import time
 from collections import defaultdict
 import csv
-import json
 import os
 import requests
 from dotenv import load_dotenv
+from datetime import datetime, timezone
+import boto3
+from botocore.exceptions import NoCredentialsError, ClientError
 
 load_dotenv()
 
@@ -97,9 +99,9 @@ def delegations_to_nivo_json(validator_delegations):
             else:  # 1000 <= tokens <= 10,000
                 dolphin_sum += tokens
         if shrimp_sum > 0:
-            children.append({"address": "\U0001F990", "amount": round(shrimp_sum, 2)})
+            children.append({"address": "\U0001f990", "amount": round(shrimp_sum, 2)})
         if dolphin_sum > 0:
-            children.append({"address": "\U0001F42C", "amount": round(dolphin_sum, 2)})
+            children.append({"address": "\U0001f42c", "amount": round(dolphin_sum, 2)})
 
         # Sort all children by amount (descending) to maintain proper order
         children.sort(key=lambda x: x["amount"], reverse=True)
@@ -132,12 +134,103 @@ def calculate_validator_stats(validator_delegations):
     return delegations_count, total_stake
 
 
+def generate_timestamped_filename():
+    """
+    Generate a timestamped filename in UTC format.
+    Returns: delegations-YYYY-MM-DDTHH-MM-SSZ.csv
+    """
+    utc_now = datetime.now(timezone.utc)
+    timestamp = utc_now.strftime("%Y-%m-%dT%H-%M-%SZ")
+    return f"delegations-{timestamp}.csv"
+
+
+def save_delegations_to_csv(validator_delegations, filename="delegations.csv"):
+    """
+    Save all delegations to a CSV file in the format:
+    Validator address, Staker address, Amount
+
+    Args:
+        validator_delegations: List of (validator_address, delegations_list) tuples
+        filename: Name of the CSV file to create
+    """
+    with open(filename, "w", newline="", encoding="utf-8") as csvfile:
+        writer = csv.writer(csvfile)
+
+        # Write header
+        writer.writerow(["Validator address", "Staker address", "Amount"])
+
+        # Write data
+        for validator_address, delegations in validator_delegations:
+            for staker_address, wei_amount in delegations:
+                # Convert wei to tokens (divide by 10^8)
+                token_amount = wei_amount / (10**8)
+                writer.writerow(
+                    [validator_address, staker_address, f"{token_amount:.8f}"]
+                )
+
+    print(f"Delegations saved to {filename}")
+
+
+def upload_to_r2(local_filename, r2_filename):
+    """
+    Upload a file to Cloudflare R2 bucket.
+
+    Args:
+        local_filename: Path to the local file to upload
+        r2_filename: Name to use for the file in R2
+
+    Returns:
+        bool: True if upload successful, False otherwise
+    """
+    try:
+        # Get R2 credentials from environment variables
+        account_id = os.getenv("CLOUDFLARE_ACCOUNT_ID")
+        access_key = os.getenv("R2_ACCESS_KEY_ID")
+        secret_key = os.getenv("R2_SECRET_ACCESS_KEY")
+        bucket_name = "hypeburn"
+
+        if not all([account_id, access_key, secret_key]):
+            print(
+                "Error: Missing R2 environment variables (CLOUDFLARE_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY)"
+            )
+            return False
+
+        # Create S3 client for R2
+        s3 = boto3.client(
+            service_name="s3",
+            endpoint_url=f"https://{account_id}.r2.cloudflarestorage.com",
+            aws_access_key_id=access_key,
+            aws_secret_access_key=secret_key,
+            region_name="auto",
+        )
+
+        # Upload file with proper content type
+        s3.upload_file(
+            local_filename,
+            bucket_name,
+            r2_filename,
+            ExtraArgs={"ContentType": "text/csv"},
+        )
+        print(f"Successfully uploaded {local_filename} to R2 as {r2_filename}")
+        return True
+
+    except NoCredentialsError:
+        print("Error: R2 credentials not found")
+        return False
+    except ClientError as e:
+        print(f"Error uploading to R2: {e}")
+        return False
+    except Exception as e:
+        print(f"Unexpected error uploading to R2: {e}")
+        return False
+
+
 def send_validators_to_api(
-    nivo_data, snapshot_time, delegations_count=None, total_stake=None
+    nivo_data, snapshot_time, delegations_count=None, total_stake=None, filename=None
 ):
     """
     Send nivo_data to the /validators endpoint as { "staking_snapshot": { "data": data, "taken_at": snapshot_time } }
-    Also send delegations_count and total_stake if provided.
+    Also send delegations_count, total_stake, and filename if provided.
     """
     token = os.getenv("BUILDER_CODES_TOKEN")
     host = os.getenv("BUILDER_CODES_HOST")
@@ -153,6 +246,8 @@ def send_validators_to_api(
         payload["staking_snapshot"]["validators_delegations_count"] = delegations_count
     if total_stake is not None:
         payload["staking_snapshot"]["validators_total_stake"] = total_stake
+    if filename is not None:
+        payload["staking_snapshot"]["filename"] = filename
 
     print("Sending the following payload to API:", payload)
     headers = {"X-Token": token, "Content-Type": "application/json"}
@@ -202,8 +297,27 @@ if __name__ == "__main__":
 
         nivo_data = delegations_to_nivo_json(validator_delegations)
 
+        # Save delegations to local CSV file (always overwrite delegations.csv)
+        local_filename = "delegations.csv"
+        save_delegations_to_csv(validator_delegations, local_filename)
+
+        # Generate timestamped filename for R2 upload
+        timestamped_filename = generate_timestamped_filename()
+
+        # Upload CSV to R2 bucket with timestamped filename
+        filename_for_api = None
+        if upload_to_r2(local_filename, timestamped_filename):
+            filename_for_api = timestamped_filename
+            print(f"Will include filename {timestamped_filename} in API payload")
+        else:
+            print("R2 upload failed - filename will not be included in API payload")
+
         send_validators_to_api(
-            nivo_data, snapshot_time, sorted_delegations_count, sorted_total_stake
+            nivo_data,
+            snapshot_time,
+            sorted_delegations_count,
+            sorted_total_stake,
+            filename_for_api,
         )
 
     except Exception as e:
